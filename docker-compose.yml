@@ -41,6 +41,21 @@ services:
     networks:
       - net
 
+  rag-engine:
+    build:
+      context: ./rag-engine
+      dockerfile: Dockerfile
+    ports:
+      - 8001:8000
+    restart: on-failure
+    environment:
+      - 'LLM_HOST=http://aimengpt-api:8000'
+      - 'CHROMA_HOST=http://chroma-server:8000'
+    volumes:
+      - rag_data:/app/data
+    networks:
+      - net
+
   aimengpt-ui:
     build:
       context: ./ui 
@@ -49,8 +64,9 @@ services:
       - 3000:3000
     restart: on-failure
     environment:
-      - 'OPENAI_API_KEY=sk-XXXXXXXXXXXXXXXXXXXX'
+      - 'OPENAI_API_KEY=sk-XXX...XXXX'
       - 'OPENAI_API_HOST=http://aimengpt-api:8000'
+      - 'RAG_ENGINE_HOST=http://rag-engine:8000'
       - 'DEFAULT_MODEL=/models/${MODEL_NAME:-llama-2-7b-chat.bin}'
       - 'WAIT_HOSTS=aimengpt-api:8000'
       - 'WAIT_TIMEOUT=${WAIT_TIMEOUT:-3600}'
@@ -61,4 +77,6 @@ volumes:
   index_data:
     driver: local
   backups:
+    driver: local
+  rag_data:
     driver: local

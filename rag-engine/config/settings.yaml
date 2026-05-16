@@ -1,0 +1,47 @@
+# Sci-RAG Pipeline Configuration
+
+llm:
+  provider: openrouter
+  model: deepseek/deepseek-v4-flash
+  temperature: 0.1
+  max_tokens: 4096
+
+embeddings:
+  provider: huggingface
+  model: sentence-transformers/all-MiniLM-L6-v2
+  dimension: 384
+  batch_size: 32
+
+vector_store:
+  type: chroma
+  persist_directory: data/chroma_db
+  collection_name: scientific_docs
+
+document_manager:
+  upload_dir: data/uploads
+  allowed_extensions: [.pdf, .docx, .txt, .md, .tex]
+  chunk_size: 1024
+  chunk_overlap: 200
+  max_document_size_mb: 50
+
+semantic_scholar:
+  api_base: https://api.semanticscholar.org/v1
+  max_results: 10
+  cache_ttl_hours: 24
+
+citation:
+  min_confidence: 0.6
+  max_sources_per_claim: 5
+  include_confidence: true
+  style: inline
+
+performance:
+  cache_enabled: true
+  cache_ttl_seconds: 3600
+  async_mode: true
+  max_concurrent_requests: 10
+
+server:
+  host: 0.0.0.0
+  port: 8000
+  workers: 4

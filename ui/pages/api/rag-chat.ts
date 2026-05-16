@@ -1,6 +1,5 @@
 import { DEFAULT_SYSTEM_PROMPT, DEFAULT_TEMPERATURE } from '@/utils/app/const';
 import { OpenAIError, OpenAIStream } from '@/utils/server';
-import { codeBlock, oneLine } from 'common-tags'
 
 import { ChatBody, Message } from '@/types/chat';
 
@@ -14,38 +13,35 @@ export const config = {
   runtime: 'edge',
 };
 
-// Function to fetch and format documents
-async function fetchAndFormatDocuments(lastMessageContent: string) {
+/**
+ * Query the Sci-RAG Engine for scientific document retrieval and citation.
+ * Falls back to the legacy document fetch if the rag-engine is unavailable.
+ */
+async function queryRagEngine(question: string): Promise<{
+  answer: string;
+  citations: Array<{ title: string; relevance: number; source_type: string }>;
+  confidence: number;
+}> {
+  const ragHost = process.env.RAG_ENGINE_HOST || 'http://rag-engine:8000';
+
   try {
-    console.log("fetching documents")
-    const response = await fetch('http://localhost:3000/api/fetch-documents', {
+    const response = await fetch(`${ragHost}/query`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ input: lastMessageContent }),
+      body: JSON.stringify({ question, top_k: 6 }),
+      signal: AbortSignal.timeout(15000),
     });
-    
+
     if (!response.ok) {
-      throw new Error(`Error fetching documents: ${response.statusText}`);
+      throw new Error(`RAG engine returned ${response.status}`);
     }
 
-    const data = await response.json();
-    const result = data.metadatas[0].map((metadata: any, index: number) => {
-      return `Source ${index + 1}) Title: ${metadata.title}, Page: ${metadata.page}, Content: ${data.documents[0][index]}\n`;
-    }).join('');
-
-    console.log(result);
-
-    return result;
-
+    return await response.json();
   } catch (error) {
-    console.error('Error fetching and formatting documents:', error);
-    throw error; // You may want to throw a more specific error object here
+    console.warn('RAG engine unavailable, using legacy document fetch:', error);
+    return { answer: '', citations: [], confidence: 0 };
   }
 }
-
-
-
-
 
 const handler = async (req: Request): Promise<Response> => {
 
@@ -60,89 +56,61 @@ const handler = async (req: Request): Promise<Response> => {
       tiktokenModel.pat_str,
     );
 
-    let promptToSend = codeBlock`
-    ${oneLine`
-      You are a very enthusiastic AI assistant  who loves
-      to help people! Given the following information from
-      relevant documentation, answer the user's question using
-      only that information, outputted in markdown format.
-    `}
+    const lastMessage = messages[messages.length - 1];
 
-    ${oneLine`
-      If you are unsure
-      and the answer is not explicitly written in the documentation, say
-      "Sorry, I don't know how to help with that."
-    `}
-    
-    ${oneLine`
-      Always include citations from the documentation.
-    `}
-  `;
+    // Query the Sci-RAG Engine for document-enhanced answers
+    const ragResult = await queryRagEngine(lastMessage.content);
 
+    let promptToSend = prompt;
     if (!promptToSend) {
       promptToSend = DEFAULT_SYSTEM_PROMPT;
     }
 
-    const lastMessage = messages[messages.length - 1];
-
-    const relevantDocuments = await fetchAndFormatDocuments(lastMessage.content);
-    
     let temperatureToUse = temperature;
     if (temperatureToUse == null) {
       temperatureToUse = DEFAULT_TEMPERATURE;
     }
 
     const prompt_tokens = encoding.encode(promptToSend);
-
     let tokenCount = prompt_tokens.length;
     let messagesToSend: Message[] = [];
 
-
     encoding.free();
 
-    console.log(model, promptToSend, temperatureToUse, key, messagesToSend);
+    // If we got a RAG answer with citations, use it directly
+    if (ragResult.answer && ragResult.citations.length > 0) {
+      // Build a citation appendix
+      const citationAppendix = ragResult.citations
+        .map((c, i) => `[${i + 1}] ${c.title} (${c.source_type}, confidence: ${(c.relevance * 100).toFixed(0)}%)`)
+        .join('\n');
 
-  
-  messagesToSend = [
-      {
-        role: "user",
-        content: codeBlock`
-          Here is the relevant documentation:
-          ${relevantDocuments}
-        `,
-      },
-      {
-        role: "user",
-        content: codeBlock`
-          ${oneLine`
-            Answer my next question using only the above documentation.
-            You must also follow the below rules when answering:
-          `}
-          ${oneLine`
-            - Do not make up answers that are not provided in the documentation.
-          `}
-          ${oneLine`
-            - If you are unsure and the answer is not explicitly written
-            in the documentation context, say
-            "Sorry, I don't know how to help with that."
-          `}
-          ${oneLine`
-            - Prefer splitting your response into multiple paragraphs.
-          `}
-          ${oneLine`
-            - Output as markdown with citations based on the documentation.
-          `}
-        `,
-      },
-      {
-        role: "user",
-        content: codeBlock`
-          Here is my question:
-          ${oneLine`${lastMessage.content}`}
-      `,
-      },
-    ]
+      messagesToSend = [
+        {
+          role: 'system',
+          content: `You are a scientific AI assistant. Use the retrieved information below to answer the user's question. Always cite your sources.
 
+Retrieved Information:
+${ragResult.answer}
+
+Citations:
+${citationAppendix}
+
+Overall confidence: ${(ragResult.confidence * 100).toFixed(0)}%`,
+        },
+        {
+          role: 'user',
+          content: lastMessage.content,
+        },
+      ];
+    } else {
+      // Fallback: use direct LLM response without RAG context
+      messagesToSend = [
+        {
+          role: 'user',
+          content: lastMessage.content,
+        },
+      ];
+    }
 
     const stream = await OpenAIStream(
       model,
