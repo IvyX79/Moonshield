@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Moonshield — PR Review Agent</title>
+    <style>
+        :root {
+            --bg: #0a0a0f;
+            --surface: #12121a;
+            --border: #1e1e2e;
+            --text: #e0e0e0;
+            --muted: #6b6b80;
+            --accent: #7c6ff0;
+            --accent2: #4fc3f7;
+            --green: #66bb6a;
+            --gold: #ffd54f;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
+        }
+        .container { max-width: 800px; margin: 0 auto; padding: 0 24px; }
+
+        /* Hero */
+        .hero {
+            padding: 100px 0 60px;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+        .hero::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: 50%;
+            width: 600px;
+            height: 600px;
+            background: radial-gradient(circle, rgba(124,111,240,0.08) 0%, transparent 70%);
+            transform: translate(-50%, 0);
+            pointer-events: none;
+        }
+        .hero h1 {
+            font-size: 3.5rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, #c4b5fd, #7c6ff0, #4fc3f7);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 8px;
+            letter-spacing: -0.02em;
+        }
+        .hero .subtitle {
+            font-size: 1.2rem;
+            color: var(--muted);
+            margin-bottom: 24px;
+        }
+        .hero .tagline {
+            font-size: 0.95rem;
+            color: var(--muted);
+            max-width: 500px;
+            margin: 0 auto 32px;
+        }
+
+        /* Buttons */
+        .buttons { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+        .btn {
+            display: inline-flex; align-items: center; gap: 8px;
+            padding: 12px 28px; border-radius: 8px; font-size: 0.95rem;
+            font-weight: 600; text-decoration: none; transition: all 0.2s;
+            border: 1px solid transparent;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #7c6ff0, #6c5ce7);
+            color: white; border-color: #7c6ff0;
+        }
+        .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 8px 24px rgba(124,111,240,0.3); }
+        .btn-secondary {
+            background: transparent; color: var(--text);
+            border-color: var(--border);
+        }
+        .btn-secondary:hover { background: var(--surface); border-color: var(--muted); }
+
+        /* Terminal */
+        .terminal {
+            background: #0d0d14;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            overflow: hidden;
+            margin: 40px 0;
+        }
+        .terminal-header {
+            display: flex; align-items: center; gap: 8px;
+            padding: 12px 16px;
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
+        }
+        .terminal-dot { width: 10px; height: 10px; border-radius: 50%; }
+        .terminal-dot:nth-child(1) { background: #ff5f56; }
+        .terminal-dot:nth-child(2) { background: #ffbd2e; }
+        .terminal-dot:nth-child(3) { background: #27c93f; }
+        .terminal-title { color: var(--muted); font-size: 0.8rem; margin-left: 8px; }
+        .terminal-body {
+            padding: 20px 24px;
+            font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+            font-size: 0.85rem;
+            line-height: 1.7;
+            color: #a0a0b8;
+            overflow-x: auto;
+        }
+        .terminal-body .prompt { color: var(--green); }
+        .terminal-body .cmd { color: #e0e0e0; }
+        .terminal-body .output { color: var(--muted); }
+        .terminal-body .highlight { color: var(--accent2); }
+
+        /* Sections */
+        section { padding: 60px 0; }
+        section h2 {
+            font-size: 1.6rem;
+            font-weight: 700;
+            margin-bottom: 24px;
+            color: #f0f0f0;
+        }
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 16px;
+            margin: 32px 0;
+        }
+        .feature-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 24px;
+            transition: border-color 0.2s;
+        }
+        .feature-card:hover { border-color: #3a3a5a; }
+        .feature-card .icon { font-size: 1.5rem; margin-bottom: 12px; }
+        .feature-card h3 { font-size: 1rem; margin-bottom: 8px; }
+        .feature-card p { font-size: 0.88rem; color: var(--muted); }
+
+        /* Sample output */
+        .sample-output {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 24px;
+            font-family: 'SF Mono', 'Fira Code', monospace;
+            font-size: 0.8rem;
+            line-height: 1.6;
+            color: #a0a0b8;
+            white-space: pre-wrap;
+            margin: 24px 0;
+        }
+        .sample-output .section-title { color: var(--accent2); font-weight: 600; }
+        .sample-output .risk { color: #ef5350; }
+        .sample-output .suggestion { color: var(--gold); }
+
+        /* Steps */
+        .steps { counter-reset: step; }
+        .step {
+            display: flex; gap: 16px;
+            padding: 20px 0;
+            border-bottom: 1px solid var(--border);
+        }
+        .step:last-child { border-bottom: none; }
+        .step-number {
+            flex-shrink: 0;
+            width: 32px; height: 32px;
+            background: linear-gradient(135deg, #7c6ff0, #6c5ce7);
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 0.85rem; font-weight: 700;
+        }
+        .step-content h3 { font-size: 1rem; margin-bottom: 4px; }
+        .step-content p { font-size: 0.88rem; color: var(--muted); }
+        .step-content code {
+            background: #1a1a2a;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-family: 'SF Mono', monospace;
+            font-size: 0.82rem;
+            color: var(--accent2);
+        }
+
+        /* Footer */
+        footer {
+            text-align: center;
+            padding: 40px 0;
+            color: var(--muted);
+            font-size: 0.85rem;
+            border-top: 1px solid var(--border);
+        }
+        footer a { color: var(--accent2); text-decoration: none; }
+        footer a:hover { text-decoration: underline; }
+
+        @media (max-width: 600px) {
+            .hero h1 { font-size: 2.2rem; }
+            .hero { padding: 60px 0 40px; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="hero">
+    <div class="container">
+        <h1>Moonshield</h1>
+        <div class="subtitle">claude-review · AI-powered PR review agent</div>
+        <div class="tagline">
+            One command. Structured analysis. Every PR reviewed in seconds.
+            CLI tool + GitHub Action — zero dependencies.
+        </div>
+        <div class="buttons">
+            <a href="https://github.com/IvyX79/Moonshield" class="btn btn-primary" target="_blank">
+                ⭐ GitHub
+            </a>
+            <a href="https://github.com/IvyX79/Moonshield#quick-start" class="btn btn-secondary" target="_blank">
+                📖 Quick Start
+            </a>
+            <a href="https://github.com/IvyX79/claude-builders-bounty/pull/1460" class="btn btn-secondary" target="_blank">
+                🏆 Bounty Submission
+            </a>
+        </div>
+    </div>
+</div>
+
+<div class="container">
+
+    <!-- Terminal Demo -->
+    <div class="terminal">
+        <div class="terminal-header">
+            <div class="terminal-dot"></div>
+            <div class="terminal-dot"></div>
+            <div class="terminal-dot"></div>
+            <span class="terminal-title">claude-review</span>
+        </div>
+        <div class="terminal-body">
+            <span class="prompt">$</span> <span class="cmd">python3 claude-review.py --pr https://github.com/owner/repo/pull/123</span>
+            <br><br>
+            <span class="output"># PR Review</span>
+            <br>
+            <span class="output">**PR:** fix: no lastRec + add tenant_id to unhandled exception</span>
+            <br>
+            <span class="output">**Files:** 2 | +12 / -3</span>
+            <br><br>
+            <span class="highlight">## Summary</span>
+            <br>
+            <span class="output">Small focused fix improving error handling and data resilience.</span>
+            <br><br>
+            <span class="highlight">## Identified Risks</span>
+            <br>
+            <span class="output" style="color:#ef5350;">- Logic duplicated in enrichment_helpers.py</span>
+            <br>
+            <span class="output" style="color:#ef5350;">- Silent data loss with auto-generated defaults</span>
+            <br><br>
+            <span class="highlight">## Confidence Score</span>
+            <br>
+            <span class="output" style="color:#66bb6a;">High</span>
+        </div>
+    </div>
+
+    <!-- Features -->
+    <section>
+        <h2>✦ What it does</h2>
+        <div class="features-grid">
+            <div class="feature-card">
+                <div class="icon">🧠</div>
+                <h3>AI-Powered Analysis</h3>
+                <p>Uses LLMs (OWL Alpha, or bring your own) for intelligent code review that catches real issues.</p>
+            </div>
+            <div class="feature-card">
+                <div class="icon">⚡</div>
+                <h3>Static Fallback</h3>
+                <p>Works without any API key. Pattern-matches risks, large files, missing tests, and more.</p>
+            </div>
+            <div class="feature-card">
+                <div class="icon">📋</div>
+                <h3>Structured Output</h3>
+                <p>Summary, Risks, Suggestions, Confidence Score — every review is consistent and readable.</p>
+            </div>
+            <div class="feature-card">
+                <div class="icon">🔄</div>
+                <h3>GitHub Action</h3>
+                <p>Auto-review every PR with a simple workflow. Comments directly on the PR.</p>
+            </div>
+            <div class="feature-card">
+                <div class="icon">📦</div>
+                <h3>Zero Dependencies</h3>
+                <p>Pure Python 3 standard library. No pip install. No npm. No Docker.</p>
+            </div>
+            <div class="feature-card">
+                <div class="icon">🔓</div>
+                <h3>Public PRs</h3>
+                <p>Works on any public GitHub PR. No authentication needed for basic reviews.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Quick Start -->
+    <section>
+        <h2>✦ Get started in 30 seconds</h2>
+        <div class="steps">
+            <div class="step">
+                <div class="step-number">1</div>
+                <div class="step-content">
+                    <h3>Download the script</h3>
+                    <p><code>curl -sL https://raw.githubusercontent.com/IvyX79/Moonshield/main/claude-review.py -o claude-review.py</code></p>
+                </div>
+            </div>
+            <div class="step">
+                <div class="step-number">2</div>
+                <div class="step-content">
+                    <h3>Run it on any PR</h3>
+                    <p><code>python3 claude-review.py --pr https://github.com/owner/repo/pull/123</code></p>
+                </div>
+            </div>
+            <div class="step">
+                <div class="step-number">3</div>
+                <div class="step-content">
+                    <h3>Or save the review</h3>
+                    <p><code>python3 claude-review.py --pr https://github.com/owner/repo/pull/123 --output review.md</code></p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Why -->
+    <section>
+        <h2>✦ Why Moonshield?</h2>
+        <p style="color:var(--muted); margin-bottom:24px;">
+            Most PR review tools are either too heavy (require Docker, Node, API keys) or too shallow (just linting).
+            Moonshield hits the sweet spot — instant structured analysis that actually catches real issues,
+            with zero setup cost. Built for developers who want fast, meaningful code review without friction.
+        </p>
+    </section>
+
+</div>
+
+<footer>
+    <div class="container">
+        <p>
+            🌙🛡️ Built with ❤️ by <a href="https://github.com/IvyX79">IvyX79</a> &nbsp;·&nbsp;
+            <a href="https://github.com/IvyX79/Moonshield">GitHub</a> &nbsp;·&nbsp;
+            <a href="https://github.com/IvyX79/Moonshield/blob/main/README.md">Docs</a>
+        </p>
+        <p style="margin-top:8px; font-size:0.8rem;">
+            MIT License &nbsp;·&nbsp; PR Review Agent for the $150 Claude Builders Bounty
+        </p>
+    </div>
+</footer>
+
+</body>
+</html>
